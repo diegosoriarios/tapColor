@@ -14,6 +14,7 @@ let gameOptions = {
 const LEFT = 0;
 const RIGHT = 1;
 let score = 0;
+let highScore = 0;
 let style = { font: "bold 190px Arial", fill: "rgba(255, 255, 255, 0.5)", boundsAlignH: "center", boundsAlignV: "middle" };
 let play = false
 
@@ -50,7 +51,21 @@ class Menu extends Phaser.Scene {
     }
 
     create() {
-        this.playText = this.add.text(game.config.width / 2, game.config.height / 2, "Click to start", {
+        let savedScore = localStorage.getItem('highScore')
+        if (savedScore > highScore) {
+            highScore = savedScore
+            localStorage.setItem('highScore', highScore)
+        }
+
+        this.label = this.add.text(game.config.width / 2, game.config.height / 2, "Highscore", {font: "bold 24px Arial", fill: "rgba(255, 255, 255, 0.5)", boundsAlignH: "center", boundsAlignV: "middle"})
+        this.label.x -= this.label.width / 2
+        this.label.y -= this.label.height / 2
+        this.highScore = this.add.text(game.config.width / 2, game.config.height / 2, highScore, style);
+        this.highScore.x -= this.highScore.width / 2
+        this.highScore.y -= this.highScore.height / 2
+        this.label.y -= this.highScore.height / 2
+
+        this.playText = this.add.text(game.config.width / 2, (game.config.height / 2) * 1.5, "Click to start", {
             font: "bold 64px Arial", boundsAlignH: "center", boundsAlignV: "middle" 
         });
         this.playText.x -= this.playText.width / 2
@@ -122,7 +137,7 @@ class playGame extends Phaser.Scene{
     }
     handleWallCollision(side, bodyA, bodyB){
         if(bodyA.color != bodyB.color){
-            this.scene.start("Menu");
+            this.handleDeath()
         }
         this.paintWalls((side == LEFT) ? this.rightWalls : this.leftWalls);
         this.ball.setVelocity(gameOptions.ballSpeed, this.ball.body.velocity.y);
@@ -148,35 +163,45 @@ class playGame extends Phaser.Scene{
     jump(){
         this.ball.setVelocity((this.ball.body.velocity.x > 0) ? gameOptions.ballSpeed : -gameOptions.ballSpeed, -gameOptions.jumpForce);
     }
+
+    handleDeath() {
+        if (score > highScore) {
+            highScore = score
+            localStorage.setItem('highScore', highScore)
+        }
+
+        var particles = this.add.particles('ball');
+        var emitter = particles.createEmitter();
+        emitter.setPosition(this.ball.x, this.ball.y);
+        emitter.setSpeed(200);
+        emitter.setBlendMode(Phaser.BlendModes.ADD);
+        let that = this
+
+        this.time.addEvent({
+            delay: 750,
+            callback: function() {
+                that.scene.stop()
+                that.leftWalls.forEach(wall => {
+                    wall.destroy()
+                })
+                that.rightWalls.forEach(wall => {
+                    wall.destroy()
+                })
+                that.score.destroy()
+                particles.destroy()
+                //that.ball.setVelocity(0, 0)
+                //that.ball.y = game.canvas.height * 2
+
+                play = false
+                game.scene.start("Menu");
+            }
+        })
+    }
+
     update(){
         this.ball.setVelocity((this.ball.body.velocity.x > 0) ? gameOptions.ballSpeed : -gameOptions.ballSpeed, this.ball.body.velocity.y);
         if(this.ball.y < 0 || this.ball.y > game.config.height){
-            var particles = this.add.particles('ball');
-            var emitter = particles.createEmitter();
-            emitter.setPosition(this.ball.x, this.ball.y);
-            emitter.setSpeed(200);
-            emitter.setBlendMode(Phaser.BlendModes.ADD);
-            let that = this
-
-            this.time.addEvent({
-                delay: 750,
-                callback: function() {
-                    that.scene.stop()
-                    that.leftWalls.forEach(wall => {
-                        wall.destroy()
-                    })
-                    that.rightWalls.forEach(wall => {
-                        wall.destroy()
-                    })
-                    that.score.destroy()
-                    particles.destroy()
-                    //that.ball.setVelocity(0, 0)
-                    //that.ball.y = game.canvas.height * 2
-
-                    play = false
-                    game.scene.start("Menu");
-                }
-            })
+            this.handleDeath()
         }
     }
 };
